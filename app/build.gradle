@@ -26,6 +26,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test:runner:1.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
-    implementation 'com.google.android.gms:play-services:11.4.2'
-    implementation 'io.nlopez.smartlocation:library:3.3.3'
+
+    implementation 'com.google.android.gms:play-services-location:16.0.0'
+    implementation 'com.karumi:dexter:5.0.0'
 }
