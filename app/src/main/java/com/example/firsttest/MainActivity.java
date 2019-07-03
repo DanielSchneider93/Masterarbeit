@@ -13,12 +13,16 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -36,6 +40,10 @@ import com.karumi.dexter.listener.PermissionGrantedResponse;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.single.PermissionListener;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
 import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
@@ -44,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
     static MainActivity instance;
     LocationRequest locationRequest;
     FusedLocationProviderClient fusedLocationProviderClient;
-    TextView txt_location;
+    private TextView txt_location;
 
     //video
     private String cameraId;
@@ -57,6 +65,12 @@ public class MainActivity extends AppCompatActivity {
     private HandlerThread mBackgroundThread;
     private static final int REQUEST_CAMERA_PERMISSION = 200;
 
+    //Request
+    private Button requestButton;
+    private TextView results;
+
+    private String LatLong;
+
     //Start Method
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
 
         instance = this;
         txt_location = findViewById(R.id.location);
+        requestButton = findViewById(R.id.sendRequest);
+        results = findViewById(R.id.results);
 
         //gps
         Dexter.withActivity(this)
@@ -85,6 +101,19 @@ public class MainActivity extends AppCompatActivity {
 
                     }
                 }).check();
+
+        //maps api request
+        requestButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if(LatLong != null){
+                   new GetJSONTask().execute();
+                   //Log.d("result from http request", result);
+                }else{
+                    Log.d("http request", "location is null" );
+                }
+
+            }
+        });
 
         //camera
         textureView = findViewById(R.id.textureView);
@@ -132,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
                 txt_location.setText(value);
             }
         });
+        LatLong = value;
     }
 
     //--------------------------------------- Camera --------------------------------------------------
@@ -193,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-    
+
     TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
@@ -270,6 +300,29 @@ public class MainActivity extends AppCompatActivity {
         mBackgroundThread = new HandlerThread("Camera Background");
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+    }
+
+    //own class for async task, to avoid NetworkOnMainThreadException
+    private class GetJSONTask extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... urls) {
+
+            try {
+                JSONObject jsonObject = HttpRequest.sendHttpRequest();
+               // return jsonObject.toString();
+            } catch (IOException | JSONException e) {
+                Log.d("doInBackgroud" , "Unable to retrieve data. URL may be invalid.");
+            }
+            return null;
+        }
+
+        // onPostExecute displays the results of the doInBackgroud and also we
+        // can hide progress dialog.
+        @Override
+        protected void onPostExecute(String result) {
+            results.setText(result);
+        }
     }
 
 }
