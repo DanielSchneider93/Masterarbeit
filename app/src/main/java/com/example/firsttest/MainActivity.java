@@ -1,38 +1,36 @@
 package com.example.firsttest;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.SurfaceTexture;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.util.Log;
-import android.util.Size;
-import android.view.Surface;
-import android.view.TextureView;
+import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.ar.core.Anchor;
+import com.google.ar.core.HitResult;
+import com.google.ar.core.Plane;
+import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.ux.ArFragment;
+import com.google.ar.sceneform.ux.TransformableNode;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.PermissionToken;
 import com.karumi.dexter.listener.PermissionDeniedResponse;
@@ -44,7 +42,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -54,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     FusedLocationProviderClient fusedLocationProviderClient;
     private TextView txt_location;
 
+    /*
     //video
     private String cameraId;
     private CameraDevice cameraDevice;
@@ -64,18 +62,70 @@ public class MainActivity extends AppCompatActivity {
     private Handler mBackgroundHandler;
     private HandlerThread mBackgroundThread;
     private static final int REQUEST_CAMERA_PERMISSION = 200;
+    */
 
     //Request
     private Button requestButton;
     private TextView results;
-
     private String LatLong;
+
+    //Sceneform AR
+    private ArFragment arFragment;
+
+    //Models
+    private ModelRenderable igloo;
+
+
+    private static final String TAG = MainActivity.class.getSimpleName();
+    private static final double MIN_OPENGL_VERSION = 3.0;
 
     //Start Method
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (!checkIsSupportedDeviceOrFinish(this)) {
+            return;
+        }
+
         setContentView(R.layout.activity_main);
+
+        //create arFragment here
+        arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
+
+        //create model
+        ModelRenderable.builder()
+                .setSource(this, R.raw.igloo)
+                .build()
+                .thenAccept(renderable -> igloo = renderable)
+                .exceptionally(
+                        throwable -> {
+                            Toast toast =
+                                    Toast.makeText(this, "Unable to load igloo renderable", Toast.LENGTH_LONG);
+                            toast.setGravity(Gravity.CENTER, 0, 0);
+                            toast.show();
+                            return null;
+                        });
+
+        arFragment.setOnTapArPlaneListener(
+                (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
+                    if (igloo == null) {
+                        return;
+                    }
+
+                    // Create the Anchor.
+                    Anchor anchor = hitResult.createAnchor();
+                    AnchorNode anchorNode = new AnchorNode(anchor);
+                    anchorNode.setParent(arFragment.getArSceneView().getScene());
+
+                    // Create the transformable andy and add it to the anchor.
+                    TransformableNode andy = new TransformableNode(arFragment.getTransformationSystem());
+                    andy.setParent(anchorNode);
+                    andy.setRenderable(igloo);
+                    andy.select();
+                });
+
+
 
         instance = this;
         txt_location = findViewById(R.id.location);
@@ -116,8 +166,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         //camera
-        textureView = findViewById(R.id.textureView);
-        textureView.setSurfaceTextureListener(textureListener);
+       // textureView = findViewById(R.id.textureView);
+        //textureView.setSurfaceTextureListener(textureListener);
     }
 
 
@@ -165,6 +215,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //--------------------------------------- Camera --------------------------------------------------
+
+    /*
 
     CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
@@ -225,6 +277,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
+        boolean processing;
+
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
             openCamera();
@@ -242,9 +296,65 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+            //flag if task is finished
+            if (processing) {
+                return;
+            }
+
+            processing = true;
+
+            //if surface texture is updated, we get the bitmap
+            Bitmap photo = textureView.getBitmap();
+
+            //do the computation in async task
+            new ImageTask(photo, new ImageResponse() {
+                @Override
+                public void processFinished() {
+                    processing = false;
+                }
+            }).execute();
+
 
         }
     };
+
+    private interface ImageResponse {
+        void processFinished();
+    }
+
+    private class ImageTask extends AsyncTask<Void, Void, Exception> {
+        private Bitmap photo;
+        private ImageResponse imageResponse;
+        ImageTask(Bitmap photo, ImageResponse imageResponse) {
+            this.photo = photo;
+            this.imageResponse = imageResponse;
+        }
+
+        @Override
+        protected Exception doInBackground(Void... params) {
+            // do background work here
+            int[] pixels;
+            int height = photo.getHeight();
+            int width = photo.getWidth();
+
+            pixels = new int[height * width];
+
+
+            photo.getPixels(pixels,0, width, 0,0 ,width,height);
+
+
+            int length = pixels.length;
+            System.out.println(length);
+
+            imageResponse.processFinished();
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Exception result) {
+
+        }
+    }
 
     private void openCamera() {
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -256,16 +366,57 @@ public class MainActivity extends AppCompatActivity {
             imageDimension = map.getOutputSizes(SurfaceTexture.class)[0];
             //Check realtime permission if run higher API 23
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{
-                        Manifest.permission.CAMERA,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                }, REQUEST_CAMERA_PERMISSION);
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
                 return;
             }
+
+
+            Size mVideoSize = chooseSize(map.getOutputSizes(MediaRecorder.class));
+            Size mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+                    width, height, mVideoSize);
+            int orientation = getResources().getConfiguration().orientation;
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                cameraTextureView.setAspectRatio(imageDimension.getWidth(), imageDimension.getHeight());
+            } else {
+                cameraTextureView.setAspectRatio(imageDimension.getHeight(), imageDimension.getWidth());
+            }
+
+
+
             manager.openCamera(cameraId, stateCallback, null);
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
+        }
+    }
+ /*
+    private static Size chooseSize(Size[] choices) {
+        for (Size size : choices) {
+            if (size.getWidth() == size.getHeight() * 4 / 3 && size.getWidth() <= 1080) {
+                return size;
+            }
+        }
+        Log.e("here", "Couldn't find any suitable video size");
+        return choices[choices.length - 1];
+    }
+
+    private static Size chooseOptimalSize(Size[] choices, int width, int height, Size aspectRatio) {
+        // Collect the supported resolutions that are at least as big as the preview Surface
+        List<Size> bigEnough = new ArrayList<>();
+        int w = aspectRatio.getWidth();
+        int h = aspectRatio.getHeight();
+        for (Size option : choices) {
+            if (option.getHeight() == option.getWidth() * h / w &&
+                    option.getWidth() >= width && option.getHeight() >= height) {
+                bigEnough.add(option);
+            }
+        }
+        // Pick the smallest of those, assuming we found any
+        if (bigEnough.size() > 0) {
+            return Collections.min(bigEnough, new CompareSizesByArea());
+        } else {
+            Log.e("here", "Couldn't find any suitable preview size");
+            return choices[0];
         }
     }
 
@@ -302,6 +453,8 @@ public class MainActivity extends AppCompatActivity {
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
     }
 
+    */
+
     //own class for async task, to avoid NetworkOnMainThreadException
     private class GetJSONTask extends AsyncTask<String, Void, String> {
 
@@ -323,6 +476,29 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             results.setText(result);
         }
+    }
+
+
+
+    public static boolean checkIsSupportedDeviceOrFinish(final Activity activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            Log.e(TAG, "Sceneform requires Android N or later");
+            Toast.makeText(activity, "Sceneform requires Android N or later", Toast.LENGTH_LONG).show();
+            activity.finish();
+            return false;
+        }
+        String openGlVersionString =
+                ((ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE))
+                        .getDeviceConfigurationInfo()
+                        .getGlEsVersion();
+        if (Double.parseDouble(openGlVersionString) < MIN_OPENGL_VERSION) {
+            Log.e(TAG, "Sceneform requires OpenGL ES 3.0 later");
+            Toast.makeText(activity, "Sceneform requires OpenGL ES 3.0 or later", Toast.LENGTH_LONG)
+                    .show();
+            activity.finish();
+            return false;
+        }
+        return true;
     }
 
 }
