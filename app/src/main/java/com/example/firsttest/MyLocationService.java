@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
-import android.widget.Toast;
 
 import com.google.android.gms.location.LocationResult;
 
@@ -22,12 +21,14 @@ public class MyLocationService extends BroadcastReceiver {
                 if(result != null){
                     Location location = result.getLastLocation();
 
-                    String location_string = new StringBuilder(""+location.getLatitude()).append("/").append(location.getLongitude()).toString();
+                    String location_string = new StringBuilder(""+location.getLatitude()).append(",").append(location.getLongitude()).toString();
+                    double lat = location.getLatitude();
+                    double lng = location.getLongitude();
 
                     try{
-                        MainActivity.getInstance().updateTextView(location_string);
+                        MainActivity.getInstance().updateTextViewAndMyPos(location_string, lat, lng);
                     }catch(Exception e){
-                        Toast.makeText(context, location_string, Toast.LENGTH_SHORT).show();
+                       // Toast.makeText(context, location_string, Toast.LENGTH_SHORT).show();
                     }
                 }
             }

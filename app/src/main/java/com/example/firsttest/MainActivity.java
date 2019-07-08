@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -64,10 +63,13 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION = 200;
     */
 
-    //Request
+    //Location Request
     private Button requestButton;
-    private TextView results;
-    private String LatLong;
+    public TextView results;
+    public String LatLong;
+    public double myLat;
+    public double myLng;
+
 
     //Sceneform AR
     private ArFragment arFragment;
@@ -95,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
         //create model
         ModelRenderable.builder()
-                .setSource(this, R.raw.igloo)
+                .setSource(this, R.raw.house)
                 .build()
                 .thenAccept(renderable -> igloo = renderable)
                 .exceptionally(
@@ -119,12 +121,11 @@ public class MainActivity extends AppCompatActivity {
                     anchorNode.setParent(arFragment.getArSceneView().getScene());
 
                     // Create the transformable andy and add it to the anchor.
-                    TransformableNode andy = new TransformableNode(arFragment.getTransformationSystem());
-                    andy.setParent(anchorNode);
-                    andy.setRenderable(igloo);
-                    andy.select();
+                    TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
+                    model.setParent(anchorNode);
+                    model.setRenderable(igloo);
+                    model.select();
                 });
-
 
 
         instance = this;
@@ -153,20 +154,18 @@ public class MainActivity extends AppCompatActivity {
                 }).check();
 
         //maps api request
-        requestButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                if(LatLong != null){
-                   new GetJSONTask().execute();
-                   //Log.d("result from http request", result);
-                }else{
-                    Log.d("http request", "location is null" );
-                }
-
+        requestButton.setOnClickListener(v -> {
+            if (LatLong != null) {
+                new GetJSONTask().execute();
+                //Log.d("result from http request", result);
+            } else {
+                Log.d("http request", "location is null");
             }
+
         });
 
         //camera
-       // textureView = findViewById(R.id.textureView);
+        // textureView = findViewById(R.id.textureView);
         //textureView.setSurfaceTextureListener(textureListener);
     }
 
@@ -204,14 +203,11 @@ public class MainActivity extends AppCompatActivity {
         locationRequest.setSmallestDisplacement(10f);
     }
 
-    public void updateTextView(final String value) {
-        MainActivity.this.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                txt_location.setText(value);
-            }
-        });
+    public void updateTextViewAndMyPos(final String value, double lat, double lng) {
+        MainActivity.this.runOnUiThread(() -> txt_location.setText(value));
         LatLong = value;
+        myLat = lat;
+        myLng = lng;
     }
 
     //--------------------------------------- Camera --------------------------------------------------
@@ -463,9 +459,33 @@ public class MainActivity extends AppCompatActivity {
 
             try {
                 JSONObject jsonObject = HttpRequest.sendHttpRequest();
-               // return jsonObject.toString();
+
+                String resultString = "";
+                int length = jsonObject.getJSONArray("results").length();
+
+                for (int x = 1; x < length; x++) {
+
+                    String name = jsonObject.getJSONArray("results").getJSONObject(x).getString("name");
+                    String lat = jsonObject.getJSONArray("results").getJSONObject(x).getJSONObject("geometry").getJSONObject("location").getString("lat");
+                    String lng = jsonObject.getJSONArray("results").getJSONObject(x).getJSONObject("geometry").getJSONObject("location").getString("lng");
+
+                    double placeLat = Double.parseDouble(lat);
+                    double placeLng = Double.parseDouble(lng);
+
+
+                    double dist = distance(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
+                    int distInMetersRounded = (int)(dist * 1000);
+
+                    resultString = resultString + "\n" + name + " Distance: " + distInMetersRounded + " Meters";
+                }
+
+                final String finalResultString = resultString;
+
+                //Update Places List on UI Thread
+                MainActivity.this.runOnUiThread(() -> results.setText(finalResultString));
+
             } catch (IOException | JSONException e) {
-                Log.d("doInBackgroud" , "Unable to retrieve data. URL may be invalid.");
+                Log.d("doInBackgroud", "Unable to retrieve data. URL may be invalid.");
             }
             return null;
         }
@@ -474,10 +494,29 @@ public class MainActivity extends AppCompatActivity {
         // can hide progress dialog.
         @Override
         protected void onPostExecute(String result) {
-            results.setText(result);
+            //results.setText(result);
+        }
+
+        //calculate distance from two lat/lon points
+        private double distance(double lat1, double lon1, double lat2, double lon2) {
+            double theta = lon1 - lon2;
+            double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+            dist = Math.acos(dist);
+            dist = rad2deg(dist);
+            dist = dist * 60 * 1.1515;
+            //to Kilometer
+            dist = dist * 1.609344;
+            return (dist);
+        }
+
+        private double deg2rad(double deg) {
+            return (deg * Math.PI / 180.0);
+        }
+
+        private double rad2deg(double rad) {
+            return (rad * 180.0 / Math.PI);
         }
     }
-
 
 
     public static boolean checkIsSupportedDeviceOrFinish(final Activity activity) {

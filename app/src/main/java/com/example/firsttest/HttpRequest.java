@@ -14,15 +14,19 @@ public class HttpRequest {
 
     protected static JSONObject sendHttpRequest() throws IOException, JSONException {
 
-        String urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=52.5318585,13.5178285&radius=150&key=AIzaSyDr1centttEHIsLx9rIsdbj4R_UckJwPcI";
+        String latLong = MainActivity.instance.LatLong;
+        String API_KEY = "AIzaSyDr1centttEHIsLx9rIsdbj4R_UckJwPcI";
+        String radius = "2000"; //in Meter
+        String type = "gym";
+
+        String urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=" + latLong + "&radius=" +  radius + "&type=" + type + "&key=" + API_KEY;
+        System.out.println(urlString);
         String jsonString;
-        JSONObject json = null;
+        JSONObject json;
 
-        URL url = null;
-        url = new URL(urlString);
+        URL url = new URL(urlString);
 
-        HttpURLConnection connection = null;
-
+        HttpURLConnection connection;
         connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
         connection.setDoOutput(true);
@@ -43,7 +47,6 @@ public class HttpRequest {
         System.out.println("JSON: " + jsonString);
 
         json = new JSONObject(jsonString);
-
         return json;
     }
 }

@@ -5,7 +5,8 @@ android {
     compileSdkVersion 29
     buildToolsVersion "29.0.0"
     defaultConfig {
-        applicationId "com.example.firsttest"
+        applicationId "com.example.masterarbeit_daniel_schneider"
+        //we need this to use arcore and sceneform
         minSdkVersion 24
         targetSdkVersion 29
         versionCode 1
@@ -14,6 +15,7 @@ android {
     }
 
     compileOptions {
+        //we need this to use arcore and sceneform
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -34,22 +36,26 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.2.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 
+    //location
     implementation 'com.google.android.gms:play-services-location:16.0.0'
+    //permission at runtime: https://github.com/Karumi/Dexter
     implementation 'com.karumi:dexter:5.0.0'
+    // HTTP Networking library: https://github.com/google/volley
     implementation 'com.android.volley:volley:1.1.1'
 
+    //AR Core: https://github.com/google-ar/arcore-android-sdk
     implementation 'com.google.ar:core:1.10.0'
 
-    // Provides ArFragment, and other UX resources.
+    // Sceneform: https://github.com/google-ar/sceneform-android-sdk
     implementation 'com.google.ar.sceneform.ux:sceneform-ux:1.10.0'
 
     // Alternatively, use ArSceneView without the UX dependency.
     implementation 'com.google.ar.sceneform:core:1.10.0'
 }
 
+//List of used Models Assets
 
-
-sceneform.asset('sampledata/models/igloo.obj',
+sceneform.asset('sampledata/models/House.obj',
         'default',
-        'sampledata/models/igloo.sfa',
-        'src/main/assets/igloo')
+        'sampledata/models/house.sfa',
+        'src/main/res/raw/house')
