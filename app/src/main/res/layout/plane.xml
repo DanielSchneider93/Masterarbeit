@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/testview"
+    android:layout_width="150dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/rounded_bg"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:clipChildren="false"
+    android:clipToPadding="false" >
+
+    <TextView
+        android:id="@+id/orbitHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Gym FitX"
+        android:textAlignment="center" />
+
+</LinearLayout>

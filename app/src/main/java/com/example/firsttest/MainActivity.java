@@ -28,6 +28,7 @@ import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
 import com.karumi.dexter.Dexter;
@@ -41,6 +42,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -77,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
     //Models
     private ModelRenderable igloo;
 
+    private ViewRenderable planeRenderable;
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
@@ -109,6 +113,22 @@ public class MainActivity extends AppCompatActivity {
                             return null;
                         });
 
+        // Build a renderable from a 2D View.
+        CompletableFuture<ViewRenderable> solarControlsStage = ViewRenderable.builder().setView(this, R.layout.plane).build();
+        CompletableFuture.allOf(
+                solarControlsStage)
+                .handle(
+                        (notUsed, throwable) -> {
+                            if (throwable != null) {
+                                return null;
+                            }
+                            try {
+                                planeRenderable = solarControlsStage.get();
+                            } catch (InterruptedException | ExecutionException ex) {
+                            }
+                            return null;
+                        });
+
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
                     if (igloo == null) {
@@ -123,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
                     // Create the transformable andy and add it to the anchor.
                     TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
                     model.setParent(anchorNode);
-                    model.setRenderable(igloo);
+                    model.setRenderable(planeRenderable);
                     model.select();
                 });
 
