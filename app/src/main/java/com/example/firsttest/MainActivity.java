@@ -11,9 +11,11 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -52,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
     LocationRequest locationRequest;
     FusedLocationProviderClient fusedLocationProviderClient;
     private TextView txt_location;
+    TextView planeview;
 
     /*
     //video
@@ -94,13 +97,24 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        //set main layout view
         setContentView(R.layout.activity_main);
-
         //create arFragment here
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
 
+
+        //find my plane layout, inflate it and change text
+        LinearLayout mainLayout = findViewById(R.id.testview);
+        LayoutInflater inflater = getLayoutInflater();
+        View plane_view = inflater.inflate(R.layout.plane, mainLayout, false);
+        TextView textView = plane_view.findViewById(R.id.plane_view);
+        textView.setText("My Awesome Text");
+
+
+
+
         //create model
-        ModelRenderable.builder()
+     /*   ModelRenderable.builder()
                 .setSource(this, R.raw.house)
                 .build()
                 .thenAccept(renderable -> igloo = renderable)
@@ -112,9 +126,10 @@ public class MainActivity extends AppCompatActivity {
                             toast.show();
                             return null;
                         });
+*/
 
         // Build a renderable from a 2D View.
-        CompletableFuture<ViewRenderable> solarControlsStage = ViewRenderable.builder().setView(this, R.layout.plane).build();
+        CompletableFuture<ViewRenderable> solarControlsStage = ViewRenderable.builder().setView(this, plane_view).build();
         CompletableFuture.allOf(
                 solarControlsStage)
                 .handle(
@@ -131,9 +146,6 @@ public class MainActivity extends AppCompatActivity {
 
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    if (igloo == null) {
-                        return;
-                    }
 
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
