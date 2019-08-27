@@ -29,10 +29,10 @@ import com.google.ar.core.Anchor;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.sceneform.AnchorNode;
-import com.google.ar.sceneform.rendering.ModelRenderable;
+import com.google.ar.sceneform.Node;
+import com.google.ar.sceneform.math.Vector3;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
-import com.google.ar.sceneform.ux.TransformableNode;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.PermissionToken;
 import com.karumi.dexter.listener.PermissionDeniedResponse;
@@ -49,46 +49,49 @@ import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
 
-    //location
+    //Location
     static MainActivity instance;
     LocationRequest locationRequest;
     FusedLocationProviderClient fusedLocationProviderClient;
     private TextView txt_location;
-    TextView planeview;
 
-    /*
-    //video
-    private String cameraId;
-    private CameraDevice cameraDevice;
-    private CameraCaptureSession cameraCaptureSessions;
-    private CaptureRequest.Builder captureRequestBuilder;
-    private Size imageDimension;
-    private TextureView textureView;
-    private Handler mBackgroundHandler;
-    private HandlerThread mBackgroundThread;
-    private static final int REQUEST_CAMERA_PERMISSION = 200;
-    */
-
-    //Location Request
+    //Location Google API Request
     private Button requestButton;
     public TextView results;
     public String LatLong;
     public double myLat;
     public double myLng;
 
-
-    //Sceneform AR
+    //Sceneform AR Fragment
     private ArFragment arFragment;
 
-    //Models
-    private ModelRenderable igloo;
+    //Create Renderable Objects from 2D
+    private ViewRenderable planeRenderable_0;
+    private ViewRenderable planeRenderable_1;
+    private ViewRenderable planeRenderable_2;
 
-    private ViewRenderable planeRenderable;
+    View plane_view;
+    TextView textView;
 
+    View plane_view_1;
+    TextView textView_1;
+
+    View plane_view_2;
+    TextView textView_2;
+
+    CompletableFuture<ViewRenderable> FutureRenderer;
+    CompletableFuture<ViewRenderable> FutureRenderer_1;
+    CompletableFuture<ViewRenderable> FutureRenderer_2;
+
+    //for debug/error log
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
-    //Start Method
+    //how many results do we want to show
+    private final int maxResultCount = 3;
+
+
+    //Start Method ---------------------------------------------------------
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,71 +102,65 @@ public class MainActivity extends AppCompatActivity {
 
         //set main layout view
         setContentView(R.layout.activity_main);
-        //create arFragment here
-        arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
-
-
-        //find my plane layout, inflate it and change text
-        LinearLayout mainLayout = findViewById(R.id.testview);
-        LayoutInflater inflater = getLayoutInflater();
-        View plane_view = inflater.inflate(R.layout.plane, mainLayout, false);
-        TextView textView = plane_view.findViewById(R.id.plane_view);
-        textView.setText("My Awesome Text");
-
-
-
-
-        //create model
-     /*   ModelRenderable.builder()
-                .setSource(this, R.raw.house)
-                .build()
-                .thenAccept(renderable -> igloo = renderable)
-                .exceptionally(
-                        throwable -> {
-                            Toast toast =
-                                    Toast.makeText(this, "Unable to load igloo renderable", Toast.LENGTH_LONG);
-                            toast.setGravity(Gravity.CENTER, 0, 0);
-                            toast.show();
-                            return null;
-                        });
-*/
-
-        // Build a renderable from a 2D View.
-        CompletableFuture<ViewRenderable> solarControlsStage = ViewRenderable.builder().setView(this, plane_view).build();
-        CompletableFuture.allOf(
-                solarControlsStage)
-                .handle(
-                        (notUsed, throwable) -> {
-                            if (throwable != null) {
-                                return null;
-                            }
-                            try {
-                                planeRenderable = solarControlsStage.get();
-                            } catch (InterruptedException | ExecutionException ex) {
-                            }
-                            return null;
-                        });
-
-        arFragment.setOnTapArPlaneListener(
-                (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-
-                    // Create the Anchor.
-                    Anchor anchor = hitResult.createAnchor();
-                    AnchorNode anchorNode = new AnchorNode(anchor);
-                    anchorNode.setParent(arFragment.getArSceneView().getScene());
-
-                    // Create the transformable andy and add it to the anchor.
-                    TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
-                    model.setParent(anchorNode);
-                    model.setRenderable(planeRenderable);
-                    model.select();
-                });
-
-
         instance = this;
+
+        //find views
         txt_location = findViewById(R.id.location);
         requestButton = findViewById(R.id.sendRequest);
         results = findViewById(R.id.results);
+
+        //create arFragment here
+        arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
+
+        //find my planes, inflate them and connect with different renderers, if only one renderer, it overwrites the old Planes :O TODO: find solution
+        LinearLayout mainLayout = findViewById(R.id.testview);
+        LayoutInflater inflater = getLayoutInflater();
+        plane_view = inflater.inflate(R.layout.plane, mainLayout, false);
+        textView = plane_view.findViewById(R.id.plane_view);
+
+        LinearLayout mainLayout_1 = findViewById(R.id.testview_1);
+        LayoutInflater inflater_1 = getLayoutInflater();
+        plane_view_1 = inflater_1.inflate(R.layout.plane_1, mainLayout_1, false);
+        textView_1 = plane_view_1.findViewById(R.id.plane_view_1);
+
+        LinearLayout mainLayout_2 = findViewById(R.id.testview_2);
+        LayoutInflater inflater_2 = getLayoutInflater();
+        plane_view_2 = inflater_2.inflate(R.layout.plane_2, mainLayout_2, false);
+        textView_2 = plane_view_2.findViewById(R.id.plane_view_2);
+
+        FutureRenderer = ViewRenderable.builder().setView(instance, plane_view).build();
+        FutureRenderer_1 = ViewRenderable.builder().setView(instance, plane_view_1).build();
+        FutureRenderer_2 = ViewRenderable.builder().setView(instance, plane_view_2).build();
+
+        //create tap listener
+        arFragment.setOnTapArPlaneListener((HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
+
+            // Create the Anchor
+            Anchor anchor = hitResult.createAnchor();
+            AnchorNode anchorNode = new AnchorNode(anchor);
+            anchorNode.setParent(arFragment.getArSceneView().getScene());
+
+            //create Nodes to hold the Planes
+            Node base = new Node();
+            Node model_1 = new Node();
+            Node model_2 = new Node();
+            Node model_3 = new Node();
+
+            // Fill the Nodes with Model and Position and add it to the anchor.
+            model_1.setParent(base);
+            model_1.setRenderable(planeRenderable_0);
+            model_1.setLocalPosition(new Vector3(0.0f, 0.0f, 0.0f));
+
+            model_2.setParent(base);
+            model_2.setRenderable(planeRenderable_1);
+            model_2.setLocalPosition(new Vector3(-1.0f, 0.0f, 0.0f));
+
+            model_3.setParent(base);
+            model_3.setRenderable(planeRenderable_2);
+            model_3.setLocalPosition(new Vector3(1.0f, 0.0f, 0.0f));
+
+            anchorNode.addChild(base);
+        });
 
         //gps
         Dexter.withActivity(this)
@@ -195,18 +192,12 @@ public class MainActivity extends AppCompatActivity {
             }
 
         });
-
-        //camera
-        // textureView = findViewById(R.id.textureView);
-        //textureView.setSurfaceTextureListener(textureListener);
     }
-
 
     //--------------------------------------- GPS --------------------------------------------------
     public static MainActivity getInstance() {
         return instance;
     }
-
 
     private void updateLocation() {
         buildLocationRequest();
@@ -215,13 +206,10 @@ public class MainActivity extends AppCompatActivity {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-
         fusedLocationProviderClient.requestLocationUpdates(locationRequest, getPendingIntent());
-
     }
 
     private PendingIntent getPendingIntent() {
-
         Intent intent = new Intent(this, MyLocationService.class);
         intent.setAction(MyLocationService.ACTION_PROCESS_UPDATE);
         return PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -242,246 +230,6 @@ public class MainActivity extends AppCompatActivity {
         myLng = lng;
     }
 
-    //--------------------------------------- Camera --------------------------------------------------
-
-    /*
-
-    CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
-        @Override
-        public void onOpened(@NonNull CameraDevice camera) {
-            cameraDevice = camera;
-            createCameraPreview();
-        }
-
-        @Override
-        public void onDisconnected(@NonNull CameraDevice cameraDevice) {
-            cameraDevice.close();
-        }
-
-        @Override
-        public void onError(@NonNull CameraDevice cameraDevice, int i) {
-            cameraDevice.close();
-        }
-    };
-
-
-    private void createCameraPreview() {
-        try {
-            SurfaceTexture texture = textureView.getSurfaceTexture();
-            texture.setDefaultBufferSize(imageDimension.getWidth(), imageDimension.getHeight());
-            Surface surface = new Surface(texture);
-
-            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            captureRequestBuilder.addTarget(surface);
-
-            cameraDevice.createCaptureSession(Arrays.asList(surface), new CameraCaptureSession.StateCallback() {
-                @Override
-                public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
-                    if (cameraDevice == null)
-                        return;
-                    cameraCaptureSessions = cameraCaptureSession;
-                    updatePreview();
-                }
-
-                @Override
-                public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
-                    Toast.makeText(MainActivity.this, "Changed", Toast.LENGTH_SHORT).show();
-                }
-            }, null);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void updatePreview() {
-        if (cameraDevice == null)
-            Toast.makeText(this, "Error", Toast.LENGTH_SHORT).show();
-        captureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
-        try {
-            cameraCaptureSessions.setRepeatingRequest(captureRequestBuilder.build(), null, mBackgroundHandler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
-        boolean processing;
-
-        @Override
-        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
-            openCamera();
-        }
-
-        @Override
-        public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int i, int i1) {
-
-        }
-
-        @Override
-        public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
-            return false;
-        }
-
-        @Override
-        public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
-            //flag if task is finished
-            if (processing) {
-                return;
-            }
-
-            processing = true;
-
-            //if surface texture is updated, we get the bitmap
-            Bitmap photo = textureView.getBitmap();
-
-            //do the computation in async task
-            new ImageTask(photo, new ImageResponse() {
-                @Override
-                public void processFinished() {
-                    processing = false;
-                }
-            }).execute();
-
-
-        }
-    };
-
-    private interface ImageResponse {
-        void processFinished();
-    }
-
-    private class ImageTask extends AsyncTask<Void, Void, Exception> {
-        private Bitmap photo;
-        private ImageResponse imageResponse;
-        ImageTask(Bitmap photo, ImageResponse imageResponse) {
-            this.photo = photo;
-            this.imageResponse = imageResponse;
-        }
-
-        @Override
-        protected Exception doInBackground(Void... params) {
-            // do background work here
-            int[] pixels;
-            int height = photo.getHeight();
-            int width = photo.getWidth();
-
-            pixels = new int[height * width];
-
-
-            photo.getPixels(pixels,0, width, 0,0 ,width,height);
-
-
-            int length = pixels.length;
-            System.out.println(length);
-
-            imageResponse.processFinished();
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Exception result) {
-
-        }
-    }
-
-    private void openCamera() {
-        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            cameraId = manager.getCameraIdList()[0];
-            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-            StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            assert map != null;
-            imageDimension = map.getOutputSizes(SurfaceTexture.class)[0];
-            //Check realtime permission if run higher API 23
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
-                return;
-            }
-
-
-            Size mVideoSize = chooseSize(map.getOutputSizes(MediaRecorder.class));
-            Size mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
-                    width, height, mVideoSize);
-            int orientation = getResources().getConfiguration().orientation;
-            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                cameraTextureView.setAspectRatio(imageDimension.getWidth(), imageDimension.getHeight());
-            } else {
-                cameraTextureView.setAspectRatio(imageDimension.getHeight(), imageDimension.getWidth());
-            }
-
-
-
-            manager.openCamera(cameraId, stateCallback, null);
-
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
- /*
-    private static Size chooseSize(Size[] choices) {
-        for (Size size : choices) {
-            if (size.getWidth() == size.getHeight() * 4 / 3 && size.getWidth() <= 1080) {
-                return size;
-            }
-        }
-        Log.e("here", "Couldn't find any suitable video size");
-        return choices[choices.length - 1];
-    }
-
-    private static Size chooseOptimalSize(Size[] choices, int width, int height, Size aspectRatio) {
-        // Collect the supported resolutions that are at least as big as the preview Surface
-        List<Size> bigEnough = new ArrayList<>();
-        int w = aspectRatio.getWidth();
-        int h = aspectRatio.getHeight();
-        for (Size option : choices) {
-            if (option.getHeight() == option.getWidth() * h / w &&
-                    option.getWidth() >= width && option.getHeight() >= height) {
-                bigEnough.add(option);
-            }
-        }
-        // Pick the smallest of those, assuming we found any
-        if (bigEnough.size() > 0) {
-            return Collections.min(bigEnough, new CompareSizesByArea());
-        } else {
-            Log.e("here", "Couldn't find any suitable preview size");
-            return choices[0];
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        startBackgroundThread();
-        if (textureView.isAvailable())
-            openCamera();
-        else
-            textureView.setSurfaceTextureListener(textureListener);
-    }
-
-    @Override
-    protected void onPause() {
-        stopBackgroundThread();
-        super.onPause();
-    }
-
-    private void stopBackgroundThread() {
-        mBackgroundThread.quitSafely();
-        try {
-            mBackgroundThread.join();
-            mBackgroundThread = null;
-            mBackgroundHandler = null;
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void startBackgroundThread() {
-        mBackgroundThread = new HandlerThread("Camera Background");
-        mBackgroundThread.start();
-        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
-    }
-
-    */
 
     //own class for async task, to avoid NetworkOnMainThreadException
     private class GetJSONTask extends AsyncTask<String, Void, String> {
@@ -490,12 +238,18 @@ public class MainActivity extends AppCompatActivity {
         protected String doInBackground(String... urls) {
 
             try {
+                //do google api call
                 JSONObject jsonObject = HttpRequest.sendHttpRequest();
 
                 String resultString = "";
-                int length = jsonObject.getJSONArray("results").length();
+                // int length = jsonObject.getJSONArray("results").length();
 
-                for (int x = 1; x < length; x++) {
+                String ResultString_1 = null;
+                String ResultString_2 = null;
+                String ResultString_3 = null;
+
+                //build strings
+                for (int x = 1; x <= maxResultCount; x++) {
 
                     String name = jsonObject.getJSONArray("results").getJSONObject(x).getString("name");
                     String lat = jsonObject.getJSONArray("results").getJSONObject(x).getJSONObject("geometry").getJSONObject("location").getString("lat");
@@ -503,17 +257,31 @@ public class MainActivity extends AppCompatActivity {
 
                     double placeLat = Double.parseDouble(lat);
                     double placeLng = Double.parseDouble(lng);
-
-
                     double dist = distance(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
-                    int distInMetersRounded = (int)(dist * 1000);
+                    int distInMetersRounded = (int) (dist * 1000);
 
-                    resultString = resultString + "\n" + name + " Distance: " + distInMetersRounded + " Meters";
+                    String ResultString = "\n" + name + " - Distance: " + distInMetersRounded + " Meters";
+
+                    if (x == 1) {
+                        ResultString_1 = "\n" + name + " - Distance: " + distInMetersRounded + " Meters";
+                    }
+                    if (x == 2) {
+                        ResultString_2 = "\n" + name + " - Distance: " + distInMetersRounded + " Meters";
+                    }
+                    if (x == 3) {
+                        ResultString_3 = "\n" + name + " - Distance: " + distInMetersRounded + " Meters";
+                    }
+
+                    resultString = resultString + ResultString;
                 }
 
-                final String finalResultString = resultString;
+                // Build a renderable from a 2D View.
+                planeRenderable_0 = buildRendererView(ResultString_1, 1);
+                planeRenderable_1 = buildRendererView(ResultString_2, 2);
+                planeRenderable_2 = buildRendererView(ResultString_3, 3);
 
                 //Update Places List on UI Thread
+                final String finalResultString = resultString;
                 MainActivity.this.runOnUiThread(() -> results.setText(finalResultString));
 
             } catch (IOException | JSONException e) {
@@ -522,11 +290,68 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
 
-        // onPostExecute displays the results of the doInBackgroud and also we
-        // can hide progress dialog.
-        @Override
-        protected void onPostExecute(String result) {
-            //results.setText(result);
+
+        private ViewRenderable buildRendererView(String oneResultString, int x) {
+            if (x == 1) {
+                textView.setText(oneResultString);
+                final ViewRenderable[] temp = new ViewRenderable[1];
+
+                CompletableFuture.allOf(
+                        FutureRenderer)
+                        .handle(
+                                (notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        return null;
+                                    }
+                                    try {
+                                        temp[0] = FutureRenderer.get();
+                                    } catch (InterruptedException | ExecutionException ex) {
+                                    }
+                                    return temp[0];
+                                });
+                return temp[0];
+            }
+            if (x == 2) {
+                textView_1.setText(oneResultString);
+                final ViewRenderable[] temp = new ViewRenderable[1];
+
+                CompletableFuture.allOf(
+                        FutureRenderer_1)
+                        .handle(
+                                (notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        return null;
+                                    }
+                                    try {
+                                        temp[0] = FutureRenderer_1.get();
+                                    } catch (InterruptedException | ExecutionException ex) {
+                                    }
+                                    return temp[0];
+                                });
+                return temp[0];
+            }
+
+            if (x == 3) {
+                textView_2.setText(oneResultString);
+                final ViewRenderable[] temp = new ViewRenderable[1];
+
+                CompletableFuture.allOf(
+                        FutureRenderer_2)
+                        .handle(
+                                (notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        return null;
+                                    }
+                                    try {
+                                        temp[0] = FutureRenderer_2.get();
+                                    } catch (InterruptedException | ExecutionException ex) {
+                                    }
+                                    return temp[0];
+                                });
+                return temp[0];
+            }
+
+          return null;
         }
 
         //calculate distance from two lat/lon points
@@ -571,5 +396,4 @@ public class MainActivity extends AppCompatActivity {
         }
         return true;
     }
-
 }

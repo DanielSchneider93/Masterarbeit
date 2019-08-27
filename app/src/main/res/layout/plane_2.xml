@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/testview"
+    android:id="@+id/testview_2"
     android:layout_width="50dp"
     android:layout_height="wrap_content"
     android:background="@drawable/rounded_bg"
@@ -11,7 +11,7 @@
     android:clipToPadding="false" >
 
     <TextView
-        android:id="@+id/plane_view"
+        android:id="@+id/plane_view_2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text=""
