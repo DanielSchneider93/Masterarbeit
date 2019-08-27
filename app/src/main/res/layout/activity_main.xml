@@ -49,10 +49,10 @@
         android:text="Results"
         app:layout_constraintBottom_toBottomOf="@+id/ux_fragment"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/location"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintVertical_bias="0.0" />
 
     <Button
         android:id="@+id/sendRequest"
@@ -64,4 +64,25 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <Button
+        android:id="@+id/move"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="312dp"
+        android:layout_marginBottom="8dp"
+        android:text="Move"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+
+    <ImageView
+        android:id="@+id/imageViewCompass"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_centerHorizontal="true"
+        android:src="@drawable/compass"
+        app:layout_constraintBottom_toBottomOf="@+id/results"
+        app:layout_constraintEnd_toEndOf="@+id/results"
+        app:layout_constraintStart_toStartOf="@+id/results"
+        app:layout_constraintTop_toTopOf="@+id/results" />
 </androidx.constraintlayout.widget.ConstraintLayout>
