@@ -351,18 +351,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     double placeLat = Double.parseDouble(lat);
                     double placeLng = Double.parseDouble(lng);
                     double dist = distance(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
+                    double dir = getDirection(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
                     int distInMetersRounded = (int) (dist * 1000);
 
-                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters";
+                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
 
                     if (x == 1) {
-                        ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters";
+                        ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
                     }
                     if (x == 2) {
-                        ResultString_2 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters";
+                        ResultString_2 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
                     }
                     if (x == 3) {
-                        ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters";
+                        ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
                     }
 
                     resultString = resultString + ResultString;
@@ -457,6 +458,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             //to Kilometer
             dist = dist * 1.609344;
             return (dist);
+        }
+
+        private double getDirection(double lat1, double lng1, double lat2, double lng2) {
+
+            double PI = Math.PI;
+            double dTeta = Math.log(Math.tan((lat2/2)+(PI/4))/Math.tan((lat1/2)+(PI/4)));
+            double dLon = Math.abs(lng1-lng2);
+            double teta = Math.atan2(dLon,dTeta);
+            double direction = Math.round(Math.toDegrees(teta));
+            return direction; //direction in degree
         }
 
         private double deg2rad(double deg) {
