@@ -18,7 +18,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -59,11 +60,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     static MainActivity instance;
     LocationRequest locationRequest;
     FusedLocationProviderClient fusedLocationProviderClient;
-    private TextView txt_location;
 
     //Location Google API Request
-    private Button requestButton;
-    private Button moveButton;
     public TextView results;
     public String LatLong;
     public double myLat;
@@ -114,7 +112,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float[] mLastMagnetometer = new float[3];
     private boolean mLastAccelerometerSet = false;
     private boolean mLastMagnetometerSet = false;
+    String where = null;
 
+    //search bar
+    public EditText simpleEditText;
+    public String searchQuery;
 
     //Start Method ---------------------------------------------------------
     @Override
@@ -137,10 +139,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
         //find views
-        txt_location = findViewById(R.id.location);
-        requestButton = findViewById(R.id.sendRequest);
-        moveButton = findViewById(R.id.move);
-        results = findViewById(R.id.results);
+        simpleEditText = findViewById(R.id.editText);
 
         //create arFragment here
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
@@ -180,18 +179,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             model_1.setParent(base);
             model_1.setRenderable(planeRenderable_0);
             model_1.setLocalPosition(new Vector3(0.0f, 0.0f, 0.0f));
+            model_1.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), 0f));
 
             model_2.setParent(base);
             model_2.setRenderable(planeRenderable_1);
-            model_2.setLocalPosition(new Vector3(-0.5f, 0.0f, 0.0f));
+            model_2.setLocalPosition(new Vector3(-0.4f, 0.0f, 0.1f));
+            model_2.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 25f));
 
             model_3.setParent(base);
             model_3.setRenderable(planeRenderable_2);
-            model_3.setLocalPosition(new Vector3(0.5f, 0.0f, 0.0f));
+            model_3.setLocalPosition(new Vector3(0.4f, 0.0f, 0.1f));
+            model_3.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0f), -25f));
 
             anchorNode.addChild(base);
-
-            rotateCorrectly();
         });
 
         //gps
@@ -214,29 +214,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }).check();
 
-        //maps api request
-        requestButton.setOnClickListener(v -> {
-            if (LatLong != null) {
-                new GetJSONTask().execute();
-                //Log.d("result from http request", result);
-            } else {
-                Log.d("http request", "location is null");
+        //get searchquery from textedit and give it to google search hhtp request
+        simpleEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                searchQuery = v.getText().toString();
+                //simpleEditText.setVisibility(View.GONE);
+
+                if (LatLong != null) {
+                    new GetJSONTask().execute();
+                } else {
+                    Toast.makeText(MainActivity.this, "Please activate Location.", Toast.LENGTH_SHORT).show();
+                }
             }
-
+            return false;
         });
-
-        //test for live movement
-        moveButton.setOnClickListener(v -> {
-            model_3.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), 90f));
-        });
-    }
-
-    public void rotateCorrectly() {
-        //TODO: get Kompass info
-        //calcualate direction
-        //turn planes in correct rotation and position
-
-
     }
 
     //--------------------------------------- GPS --------------------------------------------------
@@ -268,8 +259,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         locationRequest.setSmallestDisplacement(10f);
     }
 
-    public void updateTextViewAndMyPos(final String value, double lat, double lng) {
-        MainActivity.this.runOnUiThread(() -> txt_location.setText(value));
+    public void updateMyPos(final String value, double lat, double lng) {
         LatLong = value;
         myLat = lat;
         myLng = lng;
@@ -314,6 +304,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         mAzimuth = Math.round(mAzimuth);
         image.setRotation(-mAzimuth);
+
+
+        if (mAzimuth >= 350 || mAzimuth <= 10)
+            where = "N";
+        if (mAzimuth < 350 && mAzimuth > 280)
+            where = "NW";
+        if (mAzimuth <= 280 && mAzimuth > 260)
+            where = "W";
+        if (mAzimuth <= 260 && mAzimuth > 190)
+            where = "SW";
+        if (mAzimuth <= 190 && mAzimuth > 170)
+            where = "S";
+        if (mAzimuth <= 170 && mAzimuth > 100)
+            where = "SE";
+        if (mAzimuth <= 100 && mAzimuth > 80)
+            where = "E";
+        if (mAzimuth <= 80 && mAzimuth > 10)
+            where = "NE";
         }
 
 
@@ -332,7 +340,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             try {
                 //do google api call
-                JSONObject jsonObject = HttpRequest.sendHttpRequest();
+                JSONObject jsonObject = HttpRequest.sendHttpRequest(searchQuery);
 
                 String resultString = "";
                 // int length = jsonObject.getJSONArray("results").length();
@@ -354,16 +362,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     double dir = getDirection(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
                     int distInMetersRounded = (int) (dist * 1000);
 
-                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
+                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " +  dir + where;
 
                     if (x == 1) {
-                        ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
+                        ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
                     }
                     if (x == 2) {
-                        ResultString_2 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
+                        ResultString_2 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
                     }
                     if (x == 3) {
-                        ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters" + "- Direction " +  dir;
+                        ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
                     }
 
                     resultString = resultString + ResultString;
@@ -376,7 +384,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 //Update Places List on UI Thread
                 final String finalResultString = resultString;
-                MainActivity.this.runOnUiThread(() -> results.setText(finalResultString));
 
             } catch (IOException | JSONException e) {
                 Log.d("doInBackgroud", "Unable to retrieve data. URL may be invalid.");
@@ -387,7 +394,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         private ViewRenderable buildRendererView(String oneResultString, int x) {
             if (x == 1) {
-                textView.setText(oneResultString);
+                runOnUiThread(() -> textView.setText(oneResultString));
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
                 CompletableFuture.allOf(
@@ -406,7 +413,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 return temp[0];
             }
             if (x == 2) {
-                textView_1.setText(oneResultString);
+                runOnUiThread(() -> textView_1.setText(oneResultString));
+
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
                 CompletableFuture.allOf(
@@ -426,7 +434,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
 
             if (x == 3) {
-                textView_2.setText(oneResultString);
+                runOnUiThread(() -> textView_2.setText(oneResultString));
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
                 CompletableFuture.allOf(

@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:background="@drawable/rounded_bg"
     android:orientation="vertical"
-    android:padding="10dp"
+    android:padding="5dp"
     android:clipChildren="false"
     android:clipToPadding="false"
     android:scaleX="0.4"

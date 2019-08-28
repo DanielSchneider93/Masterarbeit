@@ -12,14 +12,14 @@ import java.net.URL;
 
 public class HttpRequest {
 
-    protected static JSONObject sendHttpRequest() throws IOException, JSONException {
+    protected static JSONObject sendHttpRequest(String searchQuery) throws IOException, JSONException {
 
         String latLong = MainActivity.instance.LatLong;
         String API_KEY = "AIzaSyDr1centttEHIsLx9rIsdbj4R_UckJwPcI";
-        String radius = "2000"; //in Meter
-        String type = "gym";
+        //String radius = "1000"; //in Meter
+        String type = searchQuery;
 
-        String urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=" + latLong + "&radius=" +  radius + "&type=" + type + "&key=" + API_KEY;
+        String urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=" + latLong + "&rankby=distance&keyword=" + type + "&key=" + API_KEY;
         System.out.println(urlString);
         String jsonString;
         JSONObject json;
