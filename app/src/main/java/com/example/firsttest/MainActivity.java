@@ -3,6 +3,7 @@ package com.example.firsttest;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -11,9 +12,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -84,6 +87,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     View plane_view_2;
     TextView textView_2;
 
+    //for rating
+    ImageView imageView_1;
+    ImageView imageView_2;
+    ImageView imageView_3;
+
     CompletableFuture<ViewRenderable> FutureRenderer;
     CompletableFuture<ViewRenderable> FutureRenderer_1;
     CompletableFuture<ViewRenderable> FutureRenderer_2;
@@ -127,6 +135,51 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             return;
         }
 
+        // dexter for location permissions
+        Dexter.withActivity(MainActivity.this)
+                .withPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                .withListener(new PermissionListener() {
+                    @Override
+                    public void onPermissionGranted(PermissionGrantedResponse response) {
+                        Log.d("onpermissiongranted" , "permission granted to location");
+                        updateLocation();
+                    }
+
+                    @Override
+                    public void onPermissionDenied(PermissionDeniedResponse response) {
+                        Toast.makeText(MainActivity.this, "You Must accept this location", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, PermissionToken token) {
+                        token.continuePermissionRequest();
+                        Log.d("onPermissionRationaleShouldBeShown", "Request Location Permission");
+
+                    }
+                }).check();
+
+        //dexter get camera permissions
+        Dexter.withActivity(MainActivity.this)
+                .withPermission(Manifest.permission.CAMERA)
+                .withListener(new PermissionListener() {
+                    @Override
+                    public void onPermissionGranted(PermissionGrantedResponse response) {
+                    }
+
+                    @Override
+                    public void onPermissionDenied(PermissionDeniedResponse response) {
+                        // check for permanent denial of permission
+                        if (response.isPermanentlyDenied()) {
+                            showSettingsDialog();
+                        }
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, PermissionToken token) {
+                        token.continuePermissionRequest();
+                    }
+                }).check();
+
         //set main layout view
         setContentView(R.layout.activity_main);
         instance = this;
@@ -160,12 +213,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         plane_view_2 = inflater_2.inflate(R.layout.plane_2, mainLayout_2, false);
         textView_2 = plane_view_2.findViewById(R.id.plane_view_2);
 
+        imageView_1 = plane_view.findViewById(R.id.imView);
+        imageView_2 = plane_view_1.findViewById(R.id.imView_1);
+        imageView_3 = plane_view_2.findViewById(R.id.imView_2);
+
         FutureRenderer = ViewRenderable.builder().setView(instance, plane_view).build();
         FutureRenderer_1 = ViewRenderable.builder().setView(instance, plane_view_1).build();
         FutureRenderer_2 = ViewRenderable.builder().setView(instance, plane_view_2).build();
 
         //shadows from planes look baaaaad
-        arFragment.getArSceneView().getPlaneRenderer().setShadowReceiver(false);
+        //arFragment.getArSceneView().getPlaneRenderer().setShadowReceiver(false);
+
         //create tap listener
         arFragment.setOnTapArPlaneListener((HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
 
@@ -193,26 +251,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             anchorNode.addChild(base);
         });
-
-        //gps
-        Dexter.withActivity(this)
-                .withPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                .withListener(new PermissionListener() {
-                    @Override
-                    public void onPermissionGranted(PermissionGrantedResponse response) {
-                        updateLocation();
-                    }
-
-                    @Override
-                    public void onPermissionDenied(PermissionDeniedResponse response) {
-                        Toast.makeText(MainActivity.this, "You Must accept this location", Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void onPermissionRationaleShouldBeShown(PermissionRequest permission, PermissionToken token) {
-
-                    }
-                }).check();
 
         //get searchquery from textedit and give it to google search hhtp request
         simpleEditText.setOnEditorActionListener((v, actionId, event) -> {
@@ -322,7 +360,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             where = "E";
         if (mAzimuth <= 80 && mAzimuth > 10)
             where = "NE";
-        }
+    }
 
 
     @Override
@@ -348,6 +386,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 String ResultString_1 = null;
                 String ResultString_2 = null;
                 String ResultString_3 = null;
+                Double rating_1 = null;
+                Double rating_2 = null;
+                Double rating_3 = null;
 
                 //build strings
                 for (int x = 1; x <= maxResultCount; x++) {
@@ -355,6 +396,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     String name = jsonObject.getJSONArray("results").getJSONObject(x).getString("name");
                     String lat = jsonObject.getJSONArray("results").getJSONObject(x).getJSONObject("geometry").getJSONObject("location").getString("lat");
                     String lng = jsonObject.getJSONArray("results").getJSONObject(x).getJSONObject("geometry").getJSONObject("location").getString("lng");
+                    String ratingString = jsonObject.getJSONArray("results").getJSONObject(x).getString("rating");
+                    Double rating = Double.parseDouble(ratingString);
 
                     double placeLat = Double.parseDouble(lat);
                     double placeLng = Double.parseDouble(lng);
@@ -362,25 +405,28 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     double dir = getDirection(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
                     int distInMetersRounded = (int) (dist * 1000);
 
-                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " +  dir + where;
+                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + dir + where;
 
                     if (x == 1) {
                         ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
+                        rating_1 = rating;
                     }
                     if (x == 2) {
                         ResultString_2 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
+                        rating_2 = rating;
                     }
                     if (x == 3) {
                         ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
+                        rating_3 = rating;
                     }
 
                     resultString = resultString + ResultString;
                 }
 
                 // Build a renderable from a 2D View.
-                planeRenderable_0 = buildRendererView(ResultString_1, 1);
-                planeRenderable_1 = buildRendererView(ResultString_2, 2);
-                planeRenderable_2 = buildRendererView(ResultString_3, 3);
+                planeRenderable_0 = buildRendererView(ResultString_1, 1, rating_1);
+                planeRenderable_1 = buildRendererView(ResultString_2, 2, rating_2);
+                planeRenderable_2 = buildRendererView(ResultString_3, 3, rating_3);
 
                 //Update Places List on UI Thread
                 final String finalResultString = resultString;
@@ -392,9 +438,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
 
-        private ViewRenderable buildRendererView(String oneResultString, int x) {
+        private ViewRenderable buildRendererView(String oneResultString, int x, Double rating) {
             if (x == 1) {
                 runOnUiThread(() -> textView.setText(oneResultString));
+
+                if(rating >= 4.5)
+                    runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s5));
+                else if(rating >= 3.5)
+                    runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s4));
+                else if(rating >= 2.5)
+                    runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s3));
+                else if(rating >= 1.5)
+                    runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s2));
+                else if(rating >= 0.5)
+                    runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s1));
+
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
                 CompletableFuture.allOf(
@@ -414,6 +472,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
             if (x == 2) {
                 runOnUiThread(() -> textView_1.setText(oneResultString));
+
+                if(rating >= 4.5)
+                    runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s5));
+                else if(rating >= 3.5)
+                    runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s4));
+                else if(rating >= 2.5)
+                    runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s3));
+                else if(rating >= 1.5)
+                    runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s2));
+                else if(rating >= 0.5)
+                    runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s1));
 
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
@@ -435,6 +504,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             if (x == 3) {
                 runOnUiThread(() -> textView_2.setText(oneResultString));
+
+                if(rating >= 4.5)
+                    runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s5));
+                else if(rating >= 3.5)
+                    runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s4));
+                else if(rating >= 2.5)
+                    runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s3));
+                else if(rating >= 1.5)
+                    runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s2));
+                else if(rating >= 0.5)
+                    runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s1));
+
                 final ViewRenderable[] temp = new ViewRenderable[1];
 
                 CompletableFuture.allOf(
@@ -471,9 +552,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         private double getDirection(double lat1, double lng1, double lat2, double lng2) {
 
             double PI = Math.PI;
-            double dTeta = Math.log(Math.tan((lat2/2)+(PI/4))/Math.tan((lat1/2)+(PI/4)));
-            double dLon = Math.abs(lng1-lng2);
-            double teta = Math.atan2(dLon,dTeta);
+            double dTeta = Math.log(Math.tan((lat2 / 2) + (PI / 4)) / Math.tan((lat1 / 2) + (PI / 4)));
+            double dLon = Math.abs(lng1 - lng2);
+            double teta = Math.atan2(dLon, dTeta);
             double direction = Math.round(Math.toDegrees(teta));
             return direction; //direction in degree
         }
@@ -506,5 +587,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             return false;
         }
         return true;
+    }
+
+    //If permanently denied -> open app settings
+    private void showSettingsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder.setTitle("Need Permissions");
+        builder.setMessage("This app needs permission to use this feature. You can grant them in app settings.");
+        builder.setPositiveButton("Go to SETTINGS", (dialog, which) -> {
+            dialog.cancel();
+            openSettings();
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+
+    }
+
+    // navigating user to app settings
+    private void openSettings() {
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        Uri uri = Uri.fromParts("package", getPackageName(), null);
+        intent.setData(uri);
+        startActivityForResult(intent, 101);
     }
 }

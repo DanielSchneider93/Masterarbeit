@@ -38,8 +38,10 @@ dependencies {
 
     //location
     implementation 'com.google.android.gms:play-services-location:16.0.0'
+
     //permission at runtime: https://github.com/Karumi/Dexter
     implementation 'com.karumi:dexter:5.0.0'
+
     // HTTP Networking library: https://github.com/google/volley
     implementation 'com.android.volley:volley:1.1.1'
 
