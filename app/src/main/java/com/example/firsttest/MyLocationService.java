@@ -25,7 +25,7 @@ public class MyLocationService extends BroadcastReceiver {
                     String location_string = new StringBuilder(""+location.getLatitude()).append(",").append(location.getLongitude()).toString();
                     double lat = location.getLatitude();
                     double lng = location.getLongitude();
-                    Toast.makeText(MainActivity.getInstance(), "Lat: " + lat + "Lng: " +lng , Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.getInstance(), " Your Location: Lat: " + lat + " Lng: " +lng , Toast.LENGTH_SHORT).show();
                     try{
                         MainActivity.getInstance().updateMyPos(location_string, lat, lng);
                     }catch(Exception e){

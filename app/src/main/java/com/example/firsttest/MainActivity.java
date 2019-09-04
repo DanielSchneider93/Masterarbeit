@@ -74,9 +74,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private ArFragment arFragment;
 
     //Create Renderable Objects from 2D
-    private ViewRenderable planeRenderable_0;
-    private ViewRenderable planeRenderable_1;
-    private ViewRenderable planeRenderable_2;
+    private ViewRenderable planeRenderable_0 = null;
+    private ViewRenderable planeRenderable_1 = null;
+    private ViewRenderable planeRenderable_2 = null;
 
     View plane_view;
     TextView textView;
@@ -120,7 +120,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float[] mLastMagnetometer = new float[3];
     private boolean mLastAccelerometerSet = false;
     private boolean mLastMagnetometerSet = false;
-    String where = null;
 
     //search bar
     public EditText simpleEditText;
@@ -141,7 +140,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 .withListener(new PermissionListener() {
                     @Override
                     public void onPermissionGranted(PermissionGrantedResponse response) {
-                        Log.d("onpermissiongranted" , "permission granted to location");
+                        Log.d("onpermissiongranted", "permission granted to location");
                         updateLocation();
                     }
 
@@ -221,35 +220,44 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         FutureRenderer_1 = ViewRenderable.builder().setView(instance, plane_view_1).build();
         FutureRenderer_2 = ViewRenderable.builder().setView(instance, plane_view_2).build();
 
-        //shadows from planes look baaaaad
-        //arFragment.getArSceneView().getPlaneRenderer().setShadowReceiver(false);
+        //shadows from planes look soooo baaaaad
+        arFragment.getArSceneView().getPlaneRenderer().setShadowReceiver(false);
 
         //create tap listener
         arFragment.setOnTapArPlaneListener((HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
 
-            // Create the Anchor
-            Anchor anchor = hitResult.createAnchor();
-            AnchorNode anchorNode = new AnchorNode(anchor);
-            anchorNode.setParent(arFragment.getArSceneView().getScene());
+            if (planeRenderable_0 != null || planeRenderable_1 != null || planeRenderable_2 != null) {
+                // Create the Anchor
+                Anchor anchor = hitResult.createAnchor();
+                AnchorNode anchorNode = new AnchorNode(anchor);
+                anchorNode.setParent(arFragment.getArSceneView().getScene());
 
 
-            // Fill the Nodes with Model and Position and add it to the anchor.
-            model_1.setParent(base);
-            model_1.setRenderable(planeRenderable_0);
-            model_1.setLocalPosition(new Vector3(0.0f, 0.0f, 0.0f));
-            model_1.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), 0f));
+                // Fill the Nodes with Model and Position and add it to the anchor.
+                model_1.setParent(base);
+                model_1.setRenderable(planeRenderable_0);
+                model_1.setLocalPosition(new Vector3(0.0f, 0.75f, 0.0f));
+                model_1.setLocalRotation(Quaternion.axisAngle(new Vector3(1f, 0, 0), 0f));
 
-            model_2.setParent(base);
-            model_2.setRenderable(planeRenderable_1);
-            model_2.setLocalPosition(new Vector3(-0.4f, 0.0f, 0.1f));
-            model_2.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 25f));
+                model_2.setParent(base);
+                model_2.setRenderable(planeRenderable_1);
+                model_2.setLocalPosition(new Vector3(-0.9f, 0.75f, 0.2f));
+                model_2.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0), 25f));
 
-            model_3.setParent(base);
-            model_3.setRenderable(planeRenderable_2);
-            model_3.setLocalPosition(new Vector3(0.4f, 0.0f, 0.1f));
-            model_3.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0f), -25f));
+                model_3.setParent(base);
+                model_3.setRenderable(planeRenderable_2);
+                model_3.setLocalPosition(new Vector3(0.9f, 0.75f, 0.2f));
+                model_3.setLocalRotation(Quaternion.axisAngle(new Vector3(0, 1f, 0f), -25f));
 
-            anchorNode.addChild(base);
+                anchorNode.addChild(base);
+            } else {
+                AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+                alertDialog.setTitle("Info");
+                alertDialog.setMessage("Search for something first!");
+                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                        (dialog, which) -> dialog.dismiss());
+                alertDialog.show();
+            }
         });
 
         //get searchquery from textedit and give it to google search hhtp request
@@ -261,7 +269,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if (LatLong != null) {
                     new GetJSONTask().execute();
                 } else {
-                    Toast.makeText(MainActivity.this, "Please activate Location.", Toast.LENGTH_SHORT).show();
+                    AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+                    alertDialog.setTitle("Info");
+                    alertDialog.setMessage("Please activate GPS.");
+                    alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                            (dialog, which) -> dialog.dismiss());
+                    alertDialog.show();
+                    //Toast.makeText(MainActivity.this, "Please activate Location.", Toast.LENGTH_SHORT).show();
                 }
             }
             return false;
@@ -342,24 +356,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         mAzimuth = Math.round(mAzimuth);
         image.setRotation(-mAzimuth);
-
-
-        if (mAzimuth >= 350 || mAzimuth <= 10)
-            where = "N";
-        if (mAzimuth < 350 && mAzimuth > 280)
-            where = "NW";
-        if (mAzimuth <= 280 && mAzimuth > 260)
-            where = "W";
-        if (mAzimuth <= 260 && mAzimuth > 190)
-            where = "SW";
-        if (mAzimuth <= 190 && mAzimuth > 170)
-            where = "S";
-        if (mAzimuth <= 170 && mAzimuth > 100)
-            where = "SE";
-        if (mAzimuth <= 100 && mAzimuth > 80)
-            where = "E";
-        if (mAzimuth <= 80 && mAzimuth > 10)
-            where = "NE";
     }
 
 
@@ -380,12 +376,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 //do google api call
                 JSONObject jsonObject = HttpRequest.sendHttpRequest(searchQuery);
 
+               int count = jsonObject.getJSONArray("results").length();
+
                 String resultString = "";
-                // int length = jsonObject.getJSONArray("results").length();
 
                 String ResultString_1 = null;
                 String ResultString_2 = null;
                 String ResultString_3 = null;
+
                 Double rating_1 = null;
                 Double rating_2 = null;
                 Double rating_3 = null;
@@ -403,9 +401,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     double placeLng = Double.parseDouble(lng);
                     double dist = distance(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
                     double dir = getDirection(MainActivity.instance.myLat, MainActivity.instance.myLng, placeLat, placeLng);
-                    int distInMetersRounded = (int) (dist * 1000);
 
-                    String ResultString = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + dir + where;
+                    String where = null;
+
+                    if (dir >= 350 || dir <= 10)
+                        where = "N";
+                    if (dir < 350 && dir > 280)
+                        where = "NW";
+                    if (dir <= 280 && dir > 260)
+                        where = "W";
+                    if (dir <= 260 && dir > 190)
+                        where = "SW";
+                    if (dir <= 190 && dir > 170)
+                        where = "S";
+                    if (dir <= 170 && dir > 100)
+                        where = "SE";
+                    if (dir <= 100 && dir > 80)
+                        where = "E";
+                    if (dir <= 80 && dir > 10)
+                        where = "NE";
+
+                    int distInMetersRounded = (int) (dist * 1000);
 
                     if (x == 1) {
                         ResultString_1 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
@@ -419,8 +435,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         ResultString_3 = "\n" + name + "\n" + " Distance: " + distInMetersRounded + " Meters " + "- Direction " + where;
                         rating_3 = rating;
                     }
-
-                    resultString = resultString + ResultString;
                 }
 
                 // Build a renderable from a 2D View.
@@ -428,11 +442,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 planeRenderable_1 = buildRendererView(ResultString_2, 2, rating_2);
                 planeRenderable_2 = buildRendererView(ResultString_3, 3, rating_3);
 
-                //Update Places List on UI Thread
-                final String finalResultString = resultString;
-
+                MainActivity.getInstance().runOnUiThread(() -> Toast.makeText(MainActivity.this, "Search Successful, found " + count + " Results!", Toast.LENGTH_SHORT).show());
             } catch (IOException | JSONException e) {
-                Log.d("doInBackgroud", "Unable to retrieve data. URL may be invalid.");
+                MainActivity.getInstance().runOnUiThread(() -> Toast.makeText(MainActivity.this, "Nothing found, please search for something different!", Toast.LENGTH_SHORT).show());
             }
             return null;
         }
@@ -442,15 +454,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (x == 1) {
                 runOnUiThread(() -> textView.setText(oneResultString));
 
-                if(rating >= 4.5)
+                if (rating >= 4.5)
                     runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s5));
-                else if(rating >= 3.5)
+                else if (rating >= 3.5)
                     runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s4));
-                else if(rating >= 2.5)
+                else if (rating >= 2.5)
                     runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s3));
-                else if(rating >= 1.5)
+                else if (rating >= 1.5)
                     runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s2));
-                else if(rating >= 0.5)
+                else if (rating >= 0.5)
                     runOnUiThread(() -> imageView_1.setImageResource(R.drawable.s1));
 
                 final ViewRenderable[] temp = new ViewRenderable[1];
@@ -473,15 +485,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (x == 2) {
                 runOnUiThread(() -> textView_1.setText(oneResultString));
 
-                if(rating >= 4.5)
+                if (rating >= 4.5)
                     runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s5));
-                else if(rating >= 3.5)
+                else if (rating >= 3.5)
                     runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s4));
-                else if(rating >= 2.5)
+                else if (rating >= 2.5)
                     runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s3));
-                else if(rating >= 1.5)
+                else if (rating >= 1.5)
                     runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s2));
-                else if(rating >= 0.5)
+                else if (rating >= 0.5)
                     runOnUiThread(() -> imageView_2.setImageResource(R.drawable.s1));
 
                 final ViewRenderable[] temp = new ViewRenderable[1];
@@ -505,15 +517,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (x == 3) {
                 runOnUiThread(() -> textView_2.setText(oneResultString));
 
-                if(rating >= 4.5)
+                if (rating >= 4.5)
                     runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s5));
-                else if(rating >= 3.5)
+                else if (rating >= 3.5)
                     runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s4));
-                else if(rating >= 2.5)
+                else if (rating >= 2.5)
                     runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s3));
-                else if(rating >= 1.5)
+                else if (rating >= 1.5)
                     runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s2));
-                else if(rating >= 0.5)
+                else if (rating >= 0.5)
                     runOnUiThread(() -> imageView_3.setImageResource(R.drawable.s1));
 
                 final ViewRenderable[] temp = new ViewRenderable[1];
